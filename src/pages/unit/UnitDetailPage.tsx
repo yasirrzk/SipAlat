@@ -5,17 +5,20 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Table, TableRow, TableCell } from '../../components/ui/Table';
 import { useUnit } from '../../hooks/useUnit';
+import { usePenyewaan } from '../../hooks/usePenyewaan';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 const UnitDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { useGetUnit } = useUnit();
+  const { useGetPenyewaans } = usePenyewaan();
+  
   const { data: unit, isLoading, isError } = useGetUnit(id || '');
+  const { data: penyewaans, isLoading: isLoadingRentals } = useGetPenyewaans();
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
-  };
+  const unitRentals = penyewaans?.filter(p => p.unitId === id) || [];
 
   if (isLoading) return (
     <div className="space-y-8">
@@ -123,21 +126,38 @@ const UnitDetailPage: React.FC = () => {
             </div>
             
             <Table headers={['Pelanggan', 'Periode', 'Total Biaya', 'Status']}>
-              {[1, 2, 3].map((i) => (
-                <TableRow key={i}>
-                  <TableCell>
-                    <p className="font-bold text-slate-200">PT. Membangun Negeri</p>
-                    <p className="text-[10px] text-slate-500">Ref: SEWA-2026-00{i}</p>
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    0{i} Mei - 0{i+7} Mei 2026
-                  </TableCell>
-                  <TableCell className="font-medium text-slate-300">Rp 17.500.000</TableCell>
-                  <TableCell>
-                    <Badge variant={i === 1 ? 'success' : 'neutral'}>{i === 1 ? 'Selesai' : 'Arsip'}</Badge>
-                  </TableCell>
+              {isLoadingRentals ? (
+                [...Array(3)].map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-6 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                  </TableRow>
+                ))
+              ) : unitRentals.length > 0 ? (
+                unitRentals.map((sewa) => (
+                  <TableRow key={sewa.id}>
+                    <TableCell>
+                      <p className="font-bold text-slate-200">{sewa.pelanggan?.perusahaan}</p>
+                      <p className="text-[10px] text-slate-500">Ref: SEWA-{sewa.id}</p>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {sewa.tanggalMulai} - {sewa.tanggalSelesai}
+                    </TableCell>
+                    <TableCell className="font-medium text-slate-300">{formatCurrency(sewa.totalBiaya)}</TableCell>
+                    <TableCell>
+                      <Badge variant={sewa.status === 'aktif' ? 'success' : sewa.status === 'selesai' ? 'neutral' : 'warning'}>
+                        {sewa.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-slate-500 italic">Belum ada riwayat penyewaan untuk unit ini.</TableCell>
                 </TableRow>
-              ))}
+              )}
             </Table>
             <div className="p-4 text-center border-t border-slate-800">
               <Button variant="ghost" size="sm" className="text-slate-500">Tampilkan lebih banyak</Button>

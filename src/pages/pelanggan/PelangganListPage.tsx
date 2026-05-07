@@ -7,8 +7,9 @@ import { Table, TableRow, TableCell } from '../../components/ui/Table';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { Plus, Search, Mail, Phone, ExternalLink, RefreshCcw } from 'lucide-react';
+import { Plus, Search, Mail, Phone, ExternalLink, RefreshCcw, Edit, Trash2 } from 'lucide-react';
 import { usePelanggan } from '../../hooks/usePelanggan';
+import { Pelanggan } from '../../types/pelanggan.types';
 
 const pelangganSchema = z.object({
   nama: z.string().min(3, 'Nama minimal 3 karakter'),
@@ -23,10 +24,13 @@ type PelangganFormValues = z.infer<typeof pelangganSchema>;
 const PelangganListPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPelanggan, setSelectedPelanggan] = useState<Pelanggan | null>(null);
   
-  const { useGetPelanggans, useCreatePelanggan } = usePelanggan();
+  const { useGetPelanggans, useCreatePelanggan, useUpdatePelanggan, useDeletePelanggan } = usePelanggan();
   const { data: pelanggans, isLoading, isError, refetch } = useGetPelanggans();
   const { mutate: createPelanggan, isPending: isCreating } = useCreatePelanggan();
+  const { mutate: updatePelanggan, isPending: isUpdating } = useUpdatePelanggan();
+  const { mutate: deletePelanggan } = useDeletePelanggan();
 
   const {
     register,
@@ -37,16 +41,55 @@ const PelangganListPage: React.FC = () => {
     resolver: zodResolver(pelangganSchema),
   });
 
-  const onAddPelanggan = (data: PelangganFormValues) => {
-    createPelanggan({
-      ...data,
-      totalSewa: 0,
-    }, {
-      onSuccess: () => {
-        setIsModalOpen(false);
-        reset();
-      }
+  const onOpenAdd = () => {
+    setSelectedPelanggan(null);
+    reset({
+      nama: '',
+      perusahaan: '',
+      email: '',
+      telepon: '',
+      alamat: '',
     });
+    setIsModalOpen(true);
+  };
+
+  const onOpenEdit = (p: Pelanggan) => {
+    setSelectedPelanggan(p);
+    reset({
+      nama: p.nama,
+      perusahaan: p.perusahaan,
+      email: p.email,
+      telepon: p.telepon,
+      alamat: p.alamat,
+    });
+    setIsModalOpen(true);
+  };
+
+  const onSubmit = (data: PelangganFormValues) => {
+    if (selectedPelanggan) {
+      updatePelanggan({ id: selectedPelanggan.id, data }, {
+        onSuccess: () => {
+          setIsModalOpen(false);
+          reset();
+        }
+      });
+    } else {
+      createPelanggan({
+        ...data,
+        totalSewa: 0,
+      }, {
+        onSuccess: () => {
+          setIsModalOpen(false);
+          reset();
+        }
+      });
+    }
+  };
+
+  const onDelete = (id: string) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus pelanggan ini?')) {
+      deletePelanggan(id);
+    }
   };
 
   if (isError) {
@@ -68,7 +111,7 @@ const PelangganListPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-100">Data Pelanggan</h1>
           <p className="text-slate-400">Manajemen basis data penyewa dan riwayat kerjasama.</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsModalOpen(true)}>
+        <Button className="gap-2" onClick={onOpenAdd}>
           <Plus size={18} />
           Tambah Pelanggan
         </Button>
@@ -137,7 +180,17 @@ const PelangganListPage: React.FC = () => {
                   <Button variant="ghost" size="sm" title="Lihat Profil">
                     <ExternalLink size={16} />
                   </Button>
-                  <Button variant="ghost" size="sm">Edit</Button>
+                  <Button variant="ghost" size="sm" onClick={() => onOpenEdit(p)}>
+                    <Edit size={16} />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                    onClick={() => onDelete(p.id)}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
                 </div>
               </TableCell>
             </TableRow>
@@ -151,14 +204,16 @@ const PelangganListPage: React.FC = () => {
           setIsModalOpen(false);
           reset();
         }} 
-        title="Tambah Pelanggan Baru"
+        title={selectedPelanggan ? "Edit Pelanggan" : "Tambah Pelanggan Baru"}
         footer={
           <>
             <Button variant="outline" onClick={() => {
               setIsModalOpen(false);
               reset();
-            }} disabled={isCreating}>Batal</Button>
-            <Button onClick={handleSubmit(onAddPelanggan)} isLoading={isCreating}>Simpan Pelanggan</Button>
+            }} disabled={isCreating || isUpdating}>Batal</Button>
+            <Button onClick={handleSubmit(onSubmit)} isLoading={isCreating || isUpdating}>
+              {selectedPelanggan ? "Simpan Perubahan" : "Simpan Pelanggan"}
+            </Button>
           </>
         }
       >

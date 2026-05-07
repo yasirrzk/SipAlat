@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
+import { authApi } from '../../api/authApi';
 
 const loginSchema = z.object({
   email: z.string().email('Format email tidak valid'),
@@ -33,22 +34,12 @@ const LoginPage: React.FC = () => {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      // Mock Login API Call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      const mockUser = {
-        id: '1',
-        nama: 'Admin SipAlat',
-        email: data.email,
-        role: 'admin' as const,
-      };
-      const mockToken = 'mock-jwt-token';
-
-      setAuth(mockUser, mockToken);
+      const response = await authApi.login(data);
+      setAuth(response.user, response.token);
       toast.success('Selamat datang kembali!');
       navigate('/');
-    } catch (error) {
-      toast.error('Email atau password salah');
+    } catch (error: any) {
+      toast.error(error.message || 'Email atau password salah');
     } finally {
       setIsLoading(false);
     }

@@ -6,18 +6,13 @@ import { Badge } from '../../components/ui/Badge';
 import { usePenyewaan } from '../../hooks/usePenyewaan';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { cn } from '../../utils/cn';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 const PenyewaanDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  // Using getAll then filtering as a simple substitute for getById in mock
-  const { useGetPenyewaans } = usePenyewaan();
-  const { data: penyewaans, isLoading } = useGetPenyewaans();
-  const sewa = penyewaans?.find(p => p.id === id);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
-  };
+  const { useGetPenyewaan } = usePenyewaan();
+  const { data: sewa, isLoading } = useGetPenyewaan(id || '');
 
   if (isLoading) return <Skeleton className="h-96 w-full rounded-2xl" />;
 

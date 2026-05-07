@@ -4,12 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { differenceInDays, parseISO } from 'date-fns';
-import { ArrowLeft, Info, Save, X } from 'lucide-react';
+import { ArrowLeft, Info, Save, X, Calendar } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { usePenyewaan } from '../../hooks/usePenyewaan';
 import { useUnit } from '../../hooks/useUnit';
 import { usePelanggan } from '../../hooks/usePelanggan';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 const penyewaanSchema = z.object({
   unitId: z.string().min(1, 'Pilih unit'),
@@ -61,10 +62,6 @@ const PenyewaanFormPage: React.FC = () => {
     const total = days * unit.hargaSewaPerHari;
     return { days, total, pricePerDay: unit.hargaSewaPerHari };
   }, [selectedUnitId, tanggalMulai, tanggalSelesai, units]);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
-  };
 
   const onSubmit = (data: PenyewaanFormValues) => {
     if (!calculation) return;

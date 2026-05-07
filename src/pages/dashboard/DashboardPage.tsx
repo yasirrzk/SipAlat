@@ -1,5 +1,6 @@
-import React from 'react';
-import { Truck, ClipboardList, Users, TrendingUp, AlertCircle, RefreshCcw } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Truck, ClipboardList, TrendingUp, AlertCircle, RefreshCcw } from 'lucide-react';
 import { 
   BarChart, 
   Bar, 
@@ -16,19 +17,28 @@ import { Button } from '../../components/ui/Button';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { useDashboard } from '../../hooks/useDashboard';
 import { usePenyewaan } from '../../hooks/usePenyewaan';
+import { formatCurrency } from '../../utils/formatCurrency';
+import { getPenyewaanStatusVariant } from '../../utils/statusColor';
 
 const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const { data: stats, isLoading, isError, refetch } = useDashboard();
   const { useGetPenyewaans } = usePenyewaan();
   const { data: penyewaans, isLoading: isLoadingRentals } = useGetPenyewaans();
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', { 
-      style: 'currency', 
-      currency: 'IDR', 
-      maximumFractionDigits: 0 
-    }).format(amount);
-  };
+  // Dynamic Ending Soon Logic
+  const endingSoonCount = useMemo(() => {
+    if (!penyewaans) return 0;
+    const now = new Date('2026-05-07'); 
+    const twoDaysFromNow = new Date('2026-05-07');
+    twoDaysFromNow.setDate(now.getDate() + 2);
+    
+    return penyewaans.filter(p => {
+      if (p.status !== 'aktif') return false;
+      const end = new Date(p.tanggalSelesai);
+      return end <= twoDaysFromNow && end >= now;
+    }).length;
+  }, [penyewaans]);
 
   if (isError) {
     return (
@@ -46,7 +56,7 @@ const DashboardPage: React.FC = () => {
     { label: 'Total Unit', value: stats?.totalUnits ?? 0, icon: Truck, color: 'text-blue-400', bg: 'bg-blue-400/10' },
     { label: 'Unit Tersedia', value: stats?.availableUnits ?? 0, icon: Truck, color: 'text-green-400', bg: 'bg-green-400/10' },
     { label: 'Unit Disewa', value: stats?.rentedUnits ?? 0, icon: ClipboardList, color: 'text-orange-400', bg: 'bg-orange-400/10' },
-    { label: 'Pendapatan (Bulan Ini)', value: formatCurrency(stats?.revenueThisMonth ?? 0), icon: TrendingUp, color: 'text-purple-400', bg: 'bg-purple-400/10' },
+    { label: 'Pendapatan (Mei)', value: formatCurrency(stats?.revenueThisMonth ?? 0), icon: TrendingUp, color: 'text-purple-400', bg: 'bg-purple-400/10' },
   ];
 
   return (
@@ -56,10 +66,12 @@ const DashboardPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-100">Dashboard</h1>
           <p className="text-slate-400">Ringkasan operasional SipAlat hari ini.</p>
         </div>
-        <Badge variant="warning" className="flex gap-2 py-1.5 px-3">
-          <AlertCircle size={14} />
-          2 Unit Segera Selesai Sewa (H-2)
-        </Badge>
+        {endingSoonCount > 0 && (
+          <Badge variant="warning" className="flex gap-2 py-1.5 px-3">
+            <AlertCircle size={14} />
+            {endingSoonCount} Unit Segera Selesai Sewa (H-2)
+          </Badge>
+        )}
       </header>
 
       {/* Stats Grid */}
@@ -128,10 +140,10 @@ const DashboardPage: React.FC = () => {
                     itemStyle={{ color: '#6366f1' }}
                   />
                   <Bar dataKey="total" radius={[6, 6, 0, 0]}>
-                    {stats?.monthlyStats.map((entry, index) => (
+                    {stats?.monthlyStats.map((_, index) => (
                       <Cell 
                         key={`cell-${index}`} 
-                        fill={index === stats.monthlyStats.length - 1 ? '#6366f1' : '#312e81'} 
+                        fill={index === (stats?.monthlyStats?.length ?? 0) - 1 ? '#6366f1' : '#312e81'} 
                         className="transition-all duration-300 hover:fill-indigo-400"
                       />
                     ))}
@@ -148,7 +160,7 @@ const DashboardPage: React.FC = () => {
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
             {isLoading 
               ? [...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
-              : stats?.recentActivities.map((activity, i) => (
+              : stats?.recentActivities.map((activity) => (
                 <div key={activity.id} className="flex gap-4 items-start group">
                   <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
                   <div className="flex-1 space-y-1">
@@ -161,7 +173,12 @@ const DashboardPage: React.FC = () => {
                   </div>
                 </div>
               ))}
-            <Button variant="outline" size="sm" className="w-full text-xs font-bold uppercase tracking-widest border-slate-800 text-slate-400 hover:bg-slate-800">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full text-xs font-bold uppercase tracking-widest border-slate-800 text-slate-400 hover:bg-slate-800"
+              onClick={() => navigate('/penyewaan')}
+            >
               Log Selengkapnya
             </Button>
           </div>
@@ -172,9 +189,16 @@ const DashboardPage: React.FC = () => {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-slate-200">Penyewaan Aktif Terbaru</h3>
-          <Button variant="ghost" size="sm" className="text-indigo-400 text-xs font-bold uppercase tracking-wider hover:bg-indigo-600/10">Lihat Semua</Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-indigo-400 text-xs font-bold uppercase tracking-wider hover:bg-indigo-600/10"
+            onClick={() => navigate('/penyewaan')}
+          >
+            Lihat Semua
+          </Button>
         </div>
-        <Table headers={['Pelanggan', 'Unit Alat Berat', 'Mulai', 'Selesai', 'Status']}>
+        <Table headers={['Pelanggan', 'Unit Alat Berat', 'Mulai', 'Selesai', 'Status', 'Aksi']}>
           {isLoadingRentals ? (
             [...Array(3)].map((_, i) => (
               <TableRow key={i}>
@@ -183,6 +207,7 @@ const DashboardPage: React.FC = () => {
                 <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                <TableCell><Skeleton className="h-6 w-16" /></TableCell>
               </TableRow>
             ))
           ) : (
@@ -193,9 +218,19 @@ const DashboardPage: React.FC = () => {
                 <TableCell className="text-xs text-slate-400">{sewa.tanggalMulai}</TableCell>
                 <TableCell className="text-xs text-slate-400">{sewa.tanggalSelesai}</TableCell>
                 <TableCell>
-                  <Badge variant={sewa.status === 'aktif' ? 'success' : 'info'}>
+                  <Badge variant={getPenyewaanStatusVariant(sewa.status)}>
                     {sewa.status}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-xs font-bold text-indigo-400 hover:text-indigo-300"
+                    onClick={() => navigate(`/penyewaan/${sewa.id}`)}
+                  >
+                    Detail
+                  </Button>
                 </TableCell>
               </TableRow>
             ))

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -8,9 +9,11 @@ import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { Plus, Search, Filter, RefreshCcw } from 'lucide-react';
-import type { UnitStatus } from '../../types/unit.types';
+import { Plus, Search, Filter, RefreshCcw, Edit, Trash2 } from 'lucide-react';
+import type { Unit, UnitStatus } from '../../types/unit.types';
 import { useUnit } from '../../hooks/useUnit';
+import { formatCurrency } from '../../utils/formatCurrency';
+import { getUnitStatusVariant } from '../../utils/statusColor';
 
 const unitSchema = z.object({
   nama: z.string().min(3, 'Nama unit minimal 3 karakter'),
@@ -23,12 +26,16 @@ const unitSchema = z.object({
 type UnitFormValues = z.infer<typeof unitSchema>;
 
 const UnitListPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   
-  const { useGetUnits, useCreateUnit } = useUnit();
+  const { useGetUnits, useCreateUnit, useUpdateUnit, useDeleteUnit } = useUnit();
   const { data: units, isLoading, isError, refetch } = useGetUnits();
   const { mutate: createUnit, isPending: isCreating } = useCreateUnit();
+  const { mutate: updateUnit, isPending: isUpdating } = useUpdateUnit();
+  const { mutate: deleteUnit } = useDeleteUnit();
 
   const {
     register,
@@ -42,29 +49,55 @@ const UnitListPage: React.FC = () => {
     }
   });
 
-  const getStatusVariant = (status: UnitStatus) => {
-    switch (status) {
-      case 'tersedia': return 'success';
-      case 'disewa': return 'warning';
-      case 'perawatan': return 'danger';
-      default: return 'neutral';
+  const onOpenAdd = () => {
+    setSelectedUnit(null);
+    reset({
+      nama: '',
+      kode: '',
+      kategori: '',
+      hargaSewaPerHari: 0,
+      lokasi: '',
+    });
+    setIsModalOpen(true);
+  };
+
+  const onOpenEdit = (unit: Unit) => {
+    setSelectedUnit(unit);
+    reset({
+      nama: unit.nama,
+      kode: unit.kode,
+      kategori: unit.kategori,
+      hargaSewaPerHari: unit.hargaSewaPerHari,
+      lokasi: unit.lokasi,
+    });
+    setIsModalOpen(true);
+  };
+
+  const onSubmit = (data: UnitFormValues) => {
+    if (selectedUnit) {
+      updateUnit({ id: selectedUnit.id, data }, {
+        onSuccess: () => {
+          setIsModalOpen(false);
+          reset();
+        }
+      });
+    } else {
+      createUnit({
+        ...data,
+        status: 'tersedia',
+      }, {
+        onSuccess: () => {
+          setIsModalOpen(false);
+          reset();
+        }
+      });
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
-  };
-
-  const onAddUnit = (data: UnitFormValues) => {
-    createUnit({
-      ...data,
-      status: 'tersedia',
-    }, {
-      onSuccess: () => {
-        setIsModalOpen(false);
-        reset();
-      }
-    });
+  const onDelete = (id: string) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus unit ini?')) {
+      deleteUnit(id);
+    }
   };
 
   if (isError) {
@@ -86,7 +119,7 @@ const UnitListPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-100">Unit Alat Berat</h1>
           <p className="text-slate-400">Manajemen armada dan status ketersediaan unit.</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsModalOpen(true)}>
+        <Button className="gap-2" onClick={onOpenAdd}>
           <Plus size={18} />
           Tambah Unit
         </Button>
@@ -136,7 +169,7 @@ const UnitListPage: React.FC = () => {
               </TableCell>
               <TableCell>{unit.kategori}</TableCell>
               <TableCell>
-                <Badge variant={getStatusVariant(unit.status)}>
+                <Badge variant={getUnitStatusVariant(unit.status)}>
                   {unit.status}
                 </Badge>
               </TableCell>
@@ -151,7 +184,17 @@ const UnitListPage: React.FC = () => {
                   >
                     Detail
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300 hover:bg-red-900/20">Hapus</Button>
+                  <Button variant="ghost" size="sm" onClick={() => onOpenEdit(unit)}>
+                    <Edit size={16} />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                    onClick={() => onDelete(unit.id)}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
                 </div>
               </TableCell>
             </TableRow>
@@ -165,14 +208,16 @@ const UnitListPage: React.FC = () => {
           setIsModalOpen(false);
           reset();
         }} 
-        title="Tambah Unit Baru"
+        title={selectedUnit ? "Edit Unit" : "Tambah Unit Baru"}
         footer={
           <>
             <Button variant="outline" onClick={() => {
               setIsModalOpen(false);
               reset();
-            }} disabled={isCreating}>Batal</Button>
-            <Button onClick={handleSubmit(onAddUnit)} isLoading={isCreating}>Simpan Unit</Button>
+            }} disabled={isCreating || isUpdating}>Batal</Button>
+            <Button onClick={handleSubmit(onSubmit)} isLoading={isCreating || isUpdating}>
+              {selectedUnit ? "Simpan Perubahan" : "Simpan Unit"}
+            </Button>
           </>
         }
       >

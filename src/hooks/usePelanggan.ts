@@ -26,8 +26,36 @@ export const usePelanggan = () => {
     });
   };
 
+  const useUpdatePelanggan = () => {
+    return useMutation({
+      mutationFn: ({ id, data }: { id: string; data: Partial<Pelanggan> }) => pelangganApi.update(id, data),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['pelanggans'] });
+        toast.success('Pelanggan berhasil diperbarui');
+      },
+      onError: () => {
+        toast.error('Gagal memperbarui pelanggan');
+      },
+    });
+  };
+
+  const useDeletePelanggan = () => {
+    return useMutation({
+      mutationFn: pelangganApi.delete,
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['pelanggans'] });
+        toast.success('Pelanggan berhasil dihapus');
+      },
+      onError: () => {
+        toast.error('Gagal menghapus pelanggan');
+      },
+    });
+  };
+
   return {
     useGetPelanggans,
     useCreatePelanggan,
+    useUpdatePelanggan,
+    useDeletePelanggan,
   };
 };

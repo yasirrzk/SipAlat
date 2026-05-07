@@ -1,5 +1,6 @@
 import axiosInstance from './axiosInstance';
 import { UnitStatus } from '../types/unit.types';
+import { mockTrackingData } from './mockData';
 
 export interface TrackingData {
   id: string;
@@ -19,17 +20,33 @@ export interface TrackingData {
 
 export const trackingApi = {
   getLiveStatus: async () => {
-    const response = await axiosInstance.get<TrackingData[]>('/tracking/live');
-    return response.data;
+    return new Promise<TrackingData[]>((resolve) => {
+      setTimeout(() => {
+        resolve(mockTrackingData);
+      }, 500);
+    });
   },
   
   getHistory: async (unitId: string) => {
-    const response = await axiosInstance.get<TrackingData[]>(`/tracking/history/${unitId}`);
-    return response.data;
+    return new Promise<TrackingData[]>((resolve) => {
+      setTimeout(() => {
+        // Just return the same data as history for now
+        resolve(mockTrackingData.filter(t => t.unitId === unitId));
+      }, 500);
+    });
   },
   
   updateStatus: async (unitId: string, data: Partial<TrackingData>) => {
-    const response = await axiosInstance.post<TrackingData>(`/tracking/${unitId}`, data);
-    return response.data;
+    return new Promise<TrackingData>((resolve, reject) => {
+      setTimeout(() => {
+        const index = mockTrackingData.findIndex(t => t.unitId === unitId);
+        if (index !== -1) {
+          mockTrackingData[index] = { ...mockTrackingData[index], ...data };
+          resolve(mockTrackingData[index]);
+        } else {
+          reject(new Error('Unit not found'));
+        }
+      }, 500);
+    });
   }
 };
